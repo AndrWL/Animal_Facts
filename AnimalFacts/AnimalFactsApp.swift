@@ -5,13 +5,19 @@
 //  Created by ANDRII LEBEDIEV on 10.09.2025.
 //
 
+import ComposableArchitecture
 import SwiftUI
 
 @main
 struct AnimalFactsApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            CategoriesView(
+                store: Store(initialState: CategoriesListFeature.State()) {
+                    CategoriesListFeature()
+                }
+            )
+            .appTheme(.main)
         }
     }
 }
