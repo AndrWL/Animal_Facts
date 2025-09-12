@@ -75,7 +75,7 @@ private struct FactCardView: View {
                 Text(title)
                     .font(.system(size: 17, weight: .regular))
                     .multilineTextAlignment(.center)
-                    .lineLimit(3)
+                    .lineLimit(4)
                     .minimumScaleFactor(0.7)
                 
                 Spacer(minLength: 0)
