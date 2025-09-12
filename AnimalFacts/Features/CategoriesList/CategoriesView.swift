@@ -13,21 +13,39 @@ public struct CategoriesView: View {
     @Environment(\.appTheme) private var theme
         
     public var body: some View {
-        WithViewStore(store, observe: { !$0.path.isEmpty }) { vs in
-            NavigationStackStore(
-                store.scope(state: \.path, action: { .path($0) })
-            ) {
-                WithViewStore(store, observe: { $0 }) { vsAll in
-                    ZStack {
-                        theme.background.ignoresSafeArea()
-                        content(vsAll)
-                            .padding(.horizontal, 20)
-                    }
-                    .task { vsAll.send(.onAppear) }
+        NavigationStackStore(
+            store.scope(state: \.path, action: { .path($0) })
+        ) {
+            WithViewStore(store, observe: { $0 }) { vsAll in
+                ZStack {
+                    theme.background.ignoresSafeArea()
+                    content(vsAll)
+                        .padding(.horizontal, 20)
                 }
-            } destination: { detailStore in
-                CategoryDetailView(store: detailStore)
+                .task { vsAll.send(.onAppear) }
             }
+            .alert(
+                store: store.scope(state: \.$alert, action: { .alert($0) })
+            )
+            .overlay {
+                WithViewStore(store, observe: \.isAdLoading) { vs in
+                    if vs.state {
+                        ZStack {
+                            Color.black.opacity(0.3).ignoresSafeArea()
+                            ProgressView("Loading…")
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(.ultraThickMaterial)
+                                )
+                        }
+                        .transition(.opacity)
+                    }
+                }
+            }
+        } destination: { detailStore in
+            CategoryDetailView(store: detailStore)
         }
     }
     

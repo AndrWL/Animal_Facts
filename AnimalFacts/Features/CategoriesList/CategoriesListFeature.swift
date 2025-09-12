@@ -29,8 +29,11 @@ public struct CategoryItem: Equatable, Identifiable {
 
 public struct CategoriesListFeature: Reducer {
     public struct State: Equatable {
+        @PresentationState public var alert: AlertState<Action.Alert>?
         public var phase: Phase = .idle
         public var path = StackState<CategoryDetailFeature.State>()
+        public var isAdLoading = false
+        public var pendingPaidItem: CategoryItem?
         
         public enum Phase: Equatable {
             case idle
@@ -48,6 +51,12 @@ public struct CategoriesListFeature: Reducer {
         case retryTapped
         case rowTapped(CategoryItem)
         case path(StackAction<CategoryDetailFeature.State, CategoryDetailFeature.Action>)
+        case alert(PresentationAction<Alert>)
+        case adFinished
+        
+        public enum Alert: Equatable {
+          case cancelTapped ,showAdTapped
+        }
     }
     
     @Dependency(\.animalsStore) var animalsStore
@@ -93,7 +102,37 @@ public struct CategoriesListFeature: Reducer {
                 return .none
                 
             case let .rowTapped(item):
-                state.path.append(CategoryDetailFeature.State(item: item))
+                switch item.status {
+                case .free:
+                    state.path.append(CategoryDetailFeature.State(item: item))
+                    return .none
+                case .paid:
+                    state.pendingPaidItem = item
+                    state.alert = AlertState {
+                        TextState("Watch Ad to continue")
+                    } actions: {
+                        ButtonState(role: .cancel, action: .send(.cancelTapped)) {
+                            TextState("Cancel")
+                        }
+                        ButtonState(action: .send(.showAdTapped)) {
+                            TextState("Show Ad")
+                        }
+                    } message: {
+                        TextState("Watch a short ad to unlock this content.")
+                    }
+                    return .none
+                    
+                case .comingSoon:
+                    state.alert = AlertState {
+                        TextState("Coming soon")
+                    } actions: {
+                        ButtonState(role: .cancel, action: .send(.cancelTapped)) {
+                            TextState("OK")
+                        }
+                    } message: {
+                        TextState("This content will be available later.")
+                    }
+                }
                 return .none
                 
             case let .loaded(.failure(error)):
@@ -106,8 +145,31 @@ public struct CategoriesListFeature: Reducer {
                 
             case .path:
                 return .none
+                
+            case .alert(.presented(.cancelTapped)):
+                state.alert = nil
+                state.pendingPaidItem = nil
+                return .none
+                
+            case .alert(.presented(.showAdTapped)):
+                state.alert = nil
+                state.isAdLoading = true
+                return .run { send in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    await send(.adFinished)
+                }
+            case .adFinished:
+                state.isAdLoading = false
+                if let item = state.pendingPaidItem {
+                    state.path.append(CategoryDetailFeature.State(item: item))
+                }
+                state.pendingPaidItem = nil
+                return .none
+            case .alert:
+                return .none
             }
         }
+        .ifLet(\.$alert, action: /Action.alert) { }
         .forEach(\.path, action: /Action.path) {
             CategoryDetailFeature()
         }
